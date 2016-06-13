@@ -7,7 +7,7 @@
 
 #include <config.h>
 #include <event.h>
-#include <mac_layer.h>
+#include <transmit.h>
 #include <ringbuffer.h>
 #include <timers.h>
 
@@ -57,11 +57,13 @@ void main(void) {
 			remote_dev_sw5_handler, remote_dev_sw6_handler,
 			remote_dev_sw7_handler);
 
-	mac_init(lora_rx_packet_handler, false, true);
+	lora_init();
+
+
 
 	// Enabling global interrupts
 	_EINT();
-
+	debug_uart_sendstr("Remote Dev \r\n");
 	// Starting the event loop
 	event_loop();
 }

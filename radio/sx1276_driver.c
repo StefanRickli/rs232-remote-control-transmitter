@@ -12,8 +12,8 @@
 #include <config.h>
 #include <timers.h>
 #include <misc.h>
-
-#include "gpio_low_level_remote_dev.h"
+#include <gpio_low_level_remote_dev.h>
+#include <ascii_comm_functions_remote_dev.h>
 
 // ---------------------------------------------------------------------------
 // Register addresses
@@ -75,7 +75,7 @@
 /*
  * Some useful macros
  *
- * DIO0 is mapped to P2.5
+ * DIO0 is mapped to P1.3
  *
  * When receiving:
  * 	- DIO0 : RX Done
@@ -83,16 +83,12 @@
  * When transmitting:
  *  - DIO0 : TX Done
  */
-// RIC: PINASSIGN
-// #define DIO0	((P2IN & BIT5) != 0) BACKUP
-#define DIO0	((P3IN & BIT0) != 0)
-/* RIC: unused
-#define DIO1	((P2IN & BIT6) != 0)
-#define DIO2	((P4IN & BIT2) != 0)
-#define DIO3	((P2IN & BIT4) != 0)
-#define DIO4	((P4IN & BIT3) != 0)
-#define DIO5	((P3IN & BIT6) != 0)
-*/
+#define DIO0	((P1IN & BIT3) != 0)
+#define DIO1	((P1IN & BIT2) != 0)
+#define DIO2	((P4IN & BIT3) != 0)
+#define DIO3	((P1IN & BIT5) != 0)
+#define DIO4	((P3IN & BIT6) != 0)
+#define DIO5	((P3IN & BIT5) != 0)
 
 /*
  * ----------------------------------- Constants
@@ -312,22 +308,10 @@ static void go_sbtdby_mode(void)
 #define ENABLE_DIO0_IT\
 	do {\
 		spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);\
-		P3IFG &= ~BIT0;\
-		P3IE |= BIT0;\
+		P1IFG &= ~BIT3;\
+		P1IE |= BIT3;\
 	} while(0)
-
-#define DISABLE_DIO0_IT	(P3IE &= ~BIT0)
-
-/* BACKUP // RIC: PINASSIGN
-#define ENABLE_DIO0_IT\
-	do {\
-		spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);\
-		P2IFG &= ~BIT5;\
-		P2IE |= BIT5;\
-	} while(0)
-// RIC: PINASSIGN
-#define DISABLE_DIO0_IT	(P2IE &= ~BIT5)
-*/
+#define DISABLE_DIO0_IT	(P1IE &= ~BIT3)
 
 // ---------------------------------------------------------------------------------
 // Interface functions implementations
@@ -347,52 +331,30 @@ volatile uint16_t sx1276_rx_fifo_last = 0u;
 void sx1276_init(event_handler_t local_pkt_handler, event_handler_t lora_pkt_handler,
 		event_handler_t timeout_handler, event_handler_t crc_err_handler)
 {
-	// RIC: PINASSIGN
 	// Setting the NRESET pin up
-	P1DIR |= BIT3;
-	P1OUT |= BIT3;
+	P1DIR |= BIT4;
+	P1OUT |= BIT4;
 	// Waiting 10ms (datasheet)
 	__delay_cycles(10000u);
 
 	// Setting DIOX
-	// DIO0 | P2.5
-	// DIO1 | P2.6
-	// DIO2 | P4.2
-	// DIO3 | P2.4
-	// DIO4 | P4.3
-	// DIO5 | P3.6
-
-	/* BACKUP
-	// RIC: PINASSIGN
-	P2DIR &= ~BIT5;
-	P2OUT &= ~BIT5;	// Pull down
-	P2IE &= ~BIT5;	// Interrupt disabled
-	P2IFG &= ~BIT5;	// Clear DIO0 interrupt
-	P2IES &= ~BIT5;	// Interrupt on a low to high transiion
-	 */
-
-	P3DIR &= ~BIT0;
-	P3OUT &= ~BIT0;	// Pull down
-	P3IE &= ~BIT0;	// Interrupt disabled
-	P3IFG &= ~BIT0;	// Clear DIO0 interrupt
-	P3IES &= ~BIT0;	// Interrupt on a low to high transiion
-
-	/* RIC: let only DIO0 active
-	P2DIR &= ~(BIT4 + BIT5 + BIT6);
-	P2OUT &= ~(BIT4 + BIT5 + BIT6);	// Pull down
-	P2IE &= ~(BIT4 + BIT5 + BIT6);	// Interrupt disabled
-	P2IFG &= ~BIT5;	// Clear DIO0 interrupt
-	P2IES &= ~BIT5;	// Interrupt on a low to high transiion
-
-	// RIC: WRONG PIN!
-	P3DIR &= ~BIT3;
-	P3OUT &= ~BIT3;
-	P3IE &= ~BIT3;	// Interrupt disabled
-
-	P4DIR &= ~(BIT2 + BIT3);
-	P4OUT &= ~(BIT2 + BIT3);	// Pull down
-	P4IE &= ~(BIT2 + BIT3);	// Interrupt disabled
-	*/
+	// DIO0 | P2.5 --> 1.3
+	// DIO1 | P2.6 --> 1.2
+	// DIO2 | P4.2 --> 4.3
+	// DIO3 | P2.4 --> 1.5
+	// DIO4 | P4.3 --> 3.6
+	// DIO5 | P3.6 --> 3.5
+	P1DIR &= ~(BIT2 + BIT3 + BIT5);
+	P1OUT &= ~(BIT2 + BIT3 + BIT5);	// Pull down
+	P1IE &= ~(BIT2 + BIT3 + BIT5);	// Interrupt disabled
+	P1IFG &= ~BIT3;	// Clear DIO0 interrupt
+	P1IES &= ~BIT3;	// Interrupt on a low to high transiion
+	P3DIR &= ~(BIT5 + BIT6);
+	P3OUT &= ~(BIT5 + BIT6);
+	P3IE &= ~(BIT5 + BIT6);
+	P4DIR &= ~(BIT3);
+	P4OUT &= ~(BIT3);	// Pull down
+	P4IE &= ~(BIT3);	// Interrupt disabled
 
 	// Carrier frequency set to 868 MHz
 	set_carrier_frequency(CARRIER_FREQUENCY);
@@ -415,10 +377,9 @@ void sx1276_init(event_handler_t local_pkt_handler, event_handler_t lora_pkt_han
  */
 void sx1276_reset()
 {
-	// RIC: PINASSIGN
-	P1OUT &= ~BIT3;
+	P1OUT &= ~BIT4;
 	__delay_cycles(1000u);
-	P1OUT |= BIT3;
+	P1OUT |= BIT4;
 	__delay_cycles(6000u);
 
 	// Carrier frequency set to 868 MHz
@@ -437,218 +398,140 @@ Modem_t sx1276_get_modem(void)
 	return _modem;
 }
 
-/**
+/*
  * Handle interrupts from DIO0 when receiving a packet
- * Also: handle interrupts from GPIOs
+ * Handle the general P1 interrupts
  */
-#pragma vector=PORT3_VECTOR
-__interrupt void isr_gpio_p3(void)
+#pragma vector=PORT1_VECTOR
+__interrupt void isr_gpio_p1(void)
 {
-	switch (__even_in_range(P3IV, P3IV_P3IFG7)) {
-	case P3IV_NONE:
-		break;
-	case P3IV_P3IFG0:
+	debug_uart_sendstr("\r\n P1ISR \r\n"); //TODO  doesn't generate an output
+	switch (__even_in_range(P1IV, P1IV_P1IFG7))
 	{
-		// Stop RX timeout timer
-		timer_cancel_one_shot(_one_shot_timer_id);
 
-		// Put the received data into the RX fifo
-		if (_modem == MODEM_LORA)
+		case P1IV_NONE:
+			break;
+		case P1IV_P1IFG0:
+			break;
+		case P1IV_P1IFG1:
+			__delay_cycles(200);
+			while(!(P1IN & BIT1));
+			__delay_cycles(200);
+			P1IFG &= ~BIT1;
+			EVENT_SIGNAL_ISR(_sw2_event);
+			break;
+		case P1IV_P1IFG2:
+			break;
+		case P1IV_P1IFG3:
 		{
-			uint8_t irq_flags = spi_rcv_data(REG_LR_IRQFLAGS), j, pkt_sz, dst_address;
+			// Stop RX timeout timer
+				timer_cancel_one_shot(_one_shot_timer_id);
 
-			// Put the transceiver in stand-by mode
-			go_sbtdby_mode();
-			__delay_cycles(1000u);
-
-			// Clear the flag
-			spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);
-
-			if ((irq_flags & RFLR_IRQFLAGS_PAYLOADCRCERROR) != 0u)
-			{
-				spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_PAYLOADCRCERROR);
-				EVENT_SIGNAL_ISR(_crc_err_ev_id);
-				goto rx_pkt_it_end;
-			}
-
-			// Reading the base address of the last received packet
-			pkt_sz = spi_rcv_data(REG_LR_FIFORXCURRENTADDR);
-			spi_snd_data(REG_LR_FIFOADDRPTR, pkt_sz);
-			pkt_sz = spi_rcv_data(REG_LR_RXNBBYTES);
-			dst_address = spi_rcv_data(REG_LR_FIFO);
-			sx1276_rx_fifo[sx1276_rx_fifo_last].address = spi_rcv_data(REG_LR_FIFO);
-			pkt_sz -= 2; // Remove 2 for the source address and destination address
-			for (j = 0u; j < pkt_sz; j++)
-			{
-				sx1276_rx_fifo[sx1276_rx_fifo_last].data[j] = spi_rcv_data(REG_LR_FIFO);
-			}
-			sx1276_rx_fifo[sx1276_rx_fifo_last].size = pkt_sz;
-			// Incrementing the FIFO and signaling the event only if the packet was for us or broadcast
-			if ((dst_address == NODE_ADDRESS) || (dst_address == BROADCAST_ADDRESS))
-			{
-				FIFO_INCR(sx1276_rx_fifo_last, SX1276_RX_FIFO_SIZE);
-				EVENT_SIGNAL_ISR(_lora_pkt_rx_ev_id);
-			}
-		}
-		else if ((_modem == MODEM_OOK) || (_modem == MODEM_FSK))
-		{
-			uint8_t j, irq_flags;
-
-			irq_flags = spi_rcv_data(REG_IRQFLAGS2);
-
-			if ((irq_flags & RF_IRQFLAGS2_CRCOK) == 0)
-			{
-				// Clear the FIFO
-				// NOTE: Is there a better way to do this ?
-				while ((spi_rcv_data(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOEMPTY) == 0)
+				// Put the received data into the RX fifo
+				if (_modem == MODEM_LORA)
 				{
-					spi_rcv_data(REG_FIFO);
+					uint8_t irq_flags = spi_rcv_data(REG_LR_IRQFLAGS), j, pkt_sz, dst_address;
+
+					// Put the transceiver in stand-by mode
+					go_sbtdby_mode();
+					__delay_cycles(1000u);
+
+					// Clear the flag
+					spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);
+
+					if ((irq_flags & RFLR_IRQFLAGS_PAYLOADCRCERROR) != 0u)
+					{
+						spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_PAYLOADCRCERROR);
+						EVENT_SIGNAL_ISR(_crc_err_ev_id);
+						goto rx_pkt_it_end;
+					}
+
+					// Reading the base address of the last received packet
+					pkt_sz = spi_rcv_data(REG_LR_FIFORXCURRENTADDR);
+					spi_snd_data(REG_LR_FIFOADDRPTR, pkt_sz);
+					pkt_sz = spi_rcv_data(REG_LR_RXNBBYTES);
+					dst_address = spi_rcv_data(REG_LR_FIFO);
+					sx1276_rx_fifo[sx1276_rx_fifo_last].address = spi_rcv_data(REG_LR_FIFO);
+					pkt_sz -= 2; // Remove 2 for the source address and destination address
+					for (j = 0u; j < pkt_sz; j++)
+					{
+						sx1276_rx_fifo[sx1276_rx_fifo_last].data[j] = spi_rcv_data(REG_LR_FIFO);
+					}
+					sx1276_rx_fifo[sx1276_rx_fifo_last].size = pkt_sz;
+					// Incrementing the FIFO and signaling the event only if the packet was for us or broadcast
+					if ((dst_address == NODE_ADDRESS) || (dst_address == BROADCAST_ADDRESS))
+					{
+						FIFO_INCR(sx1276_rx_fifo_last, SX1276_RX_FIFO_SIZE);
+						EVENT_SIGNAL_ISR(_lora_pkt_rx_ev_id);
+					}
 				}
-				EVENT_SIGNAL_ISR(_crc_err_ev_id);
-				goto rx_pkt_it_end;
-			}
+				else if ((_modem == MODEM_OOK) || (_modem == MODEM_FSK))
+				{
+					uint8_t j, irq_flags;
 
-			// Reading the address and size, then data
-			sx1276_rx_fifo[sx1276_rx_fifo_last].size = spi_rcv_data(REG_FIFO);
-			spi_rcv_data(REG_FIFO);	// Because of hardware address filtering, we don't need to check if the packet was intended to us.
-			sx1276_rx_fifo[sx1276_rx_fifo_last].address = spi_rcv_data(REG_FIFO);
-			j = 0;
-			while ((spi_rcv_data(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOEMPTY) == 0)
-			{
-				sx1276_rx_fifo[sx1276_rx_fifo_last].data[j++] = spi_rcv_data(REG_FIFO);
-			}
-			FIFO_INCR(sx1276_rx_fifo_last, SX1276_RX_FIFO_SIZE);
+					irq_flags = spi_rcv_data(REG_IRQFLAGS2);
 
-			EVENT_SIGNAL_ISR(_local_pkt_rx_ev_id);
-			spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);
+					if ((irq_flags & RF_IRQFLAGS2_CRCOK) == 0)
+					{
+						// Clear the FIFO
+						// NOTE: Is there a better way to do this ?
+						while ((spi_rcv_data(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOEMPTY) == 0)
+						{
+							spi_rcv_data(REG_FIFO);
+						}
+						EVENT_SIGNAL_ISR(_crc_err_ev_id);
+						goto rx_pkt_it_end;
+					}
+
+					// Reading the address and size, then data
+					sx1276_rx_fifo[sx1276_rx_fifo_last].size = spi_rcv_data(REG_FIFO);
+					spi_rcv_data(REG_FIFO);	// Because of hardware address filtering, we don't need to check if the packet was intended to us.
+					sx1276_rx_fifo[sx1276_rx_fifo_last].address = spi_rcv_data(REG_FIFO);
+					j = 0;
+					while ((spi_rcv_data(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOEMPTY) == 0)
+					{
+						sx1276_rx_fifo[sx1276_rx_fifo_last].data[j++] = spi_rcv_data(REG_FIFO);
+					}
+					FIFO_INCR(sx1276_rx_fifo_last, SX1276_RX_FIFO_SIZE);
+
+					EVENT_SIGNAL_ISR(_local_pkt_rx_ev_id);
+					spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);
+				}
+
+
+		rx_pkt_it_end:
+			// Reset the interrupt flag
+			P1IFG &= ~BIT3;
+
+		/*
+		__delay_cycles(200);
+		while(!(P1IN & BIT3));
+		__delay_cycles(200);
+		P1IFG &= ~BIT3;
+		EVENT_SIGNAL_ISR(_sw6_event);
+		*/
+		break;
 		}
-		break;
+		case P1IV_P1IFG4:
+			/*
+			__delay_cycles(200);
+			while(!(P1IN & BIT4));
+			__delay_cycles(200);
+			P1IFG &= ~BIT4;
+			EVENT_SIGNAL_ISR(_sw7_event);
+			 */
+			break;
+		case P1IV_P1IFG5://what was this supposed to do in the first place?
+			//EVENT_SIGNAL_ISR(_wurx_ev);
+			P1IFG &= ~BIT5;
+			break;
+		case P1IV_P1IFG6:
+			break;
+		case P1IV_P1IFG7:
+			break;
 	}
-	case P3IV_P3IFG1:
-		break;
-	case P3IV_P3IFG2:
-		break;
-	case P3IV_P3IFG3:
-		break;
-	case P3IV_P3IFG4:
-		__delay_cycles(200);
-		while(!(P3IN & BIT4));
-		__delay_cycles(200);
-		P3IFG &= ~BIT4;
-		EVENT_SIGNAL_ISR(_sw3_event);
-		break;
-	case P3IV_P3IFG5:
-		__delay_cycles(200);
-		while(!(P3IN & BIT5));
-		__delay_cycles(200);
-		P3IFG &= ~BIT5;
-		EVENT_SIGNAL_ISR(_sw4_event);
-		break;
-	case P3IV_P3IFG6:
-		__delay_cycles(200);
-		while(!(P3IN & BIT6));
-		__delay_cycles(200);
-		P3IFG &= ~BIT6;
-		EVENT_SIGNAL_ISR(_sw5_event);
-		break;
-	case P3IV_P3IFG7:
-		break;
-	}
-
-	rx_pkt_it_end:
-		// Reset the interrupt flag
-		P3IFG &= ~BIT0;
 }
 
-/* BACKUP legacy code
-#pragma vector=PORT2_VECTOR
-__interrupt void rx_interrupt_handler(void)
-{
-	// TODO INTEGRATE INTO GPIO-ISR!!
-	// RIC: PINASSIGN
-	if (P2IFG & BIT5)
-	{
-		// Stop RX timeout timer
-		timer_cancel_one_shot(_one_shot_timer_id);
-
-		// Put the received data into the RX fifo
-		if (_modem == MODEM_LORA)
-		{
-			uint8_t irq_flags = spi_rcv_data(REG_LR_IRQFLAGS), j, pkt_sz, dst_address;
-
-			// Put the transceiver in stand-by mode
-			go_sbtdby_mode();
-			__delay_cycles(1000u);
-
-			// Clear the flag
-			spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);
-
-			if ((irq_flags & RFLR_IRQFLAGS_PAYLOADCRCERROR) != 0u)
-			{
-				spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_PAYLOADCRCERROR);
-				EVENT_SIGNAL_ISR(_crc_err_ev_id);
-				goto rx_pkt_it_end;
-			}
-
-			// Reading the base address of the last received packet
-			pkt_sz = spi_rcv_data(REG_LR_FIFORXCURRENTADDR);
-			spi_snd_data(REG_LR_FIFOADDRPTR, pkt_sz);
-			pkt_sz = spi_rcv_data(REG_LR_RXNBBYTES);
-			dst_address = spi_rcv_data(REG_LR_FIFO);
-			sx1276_rx_fifo[sx1276_rx_fifo_last].address = spi_rcv_data(REG_LR_FIFO);
-			pkt_sz -= 2; // Remove 2 for the source address and destination address
-			for (j = 0u; j < pkt_sz; j++)
-			{
-				sx1276_rx_fifo[sx1276_rx_fifo_last].data[j] = spi_rcv_data(REG_LR_FIFO);
-			}
-			sx1276_rx_fifo[sx1276_rx_fifo_last].size = pkt_sz;
-			// Incrementing the FIFO and signaling the event only if the packet was for us or broadcast
-			if ((dst_address == NODE_ADDRESS) || (dst_address == BROADCAST_ADDRESS))
-			{
-				FIFO_INCR(sx1276_rx_fifo_last, SX1276_RX_FIFO_SIZE);
-				EVENT_SIGNAL_ISR(_lora_pkt_rx_ev_id);
-			}
-		}
-		else if ((_modem == MODEM_OOK) || (_modem == MODEM_FSK))
-		{
-			uint8_t j, irq_flags;
-
-			irq_flags = spi_rcv_data(REG_IRQFLAGS2);
-
-			if ((irq_flags & RF_IRQFLAGS2_CRCOK) == 0)
-			{
-				// Clear the FIFO
-				// NOTE: Is there a better way to do this ?
-				while ((spi_rcv_data(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOEMPTY) == 0)
-				{
-					spi_rcv_data(REG_FIFO);
-				}
-				EVENT_SIGNAL_ISR(_crc_err_ev_id);
-				goto rx_pkt_it_end;
-			}
-
-			// Reading the address and size, then data
-			sx1276_rx_fifo[sx1276_rx_fifo_last].size = spi_rcv_data(REG_FIFO);
-			spi_rcv_data(REG_FIFO);	// Because of hardware address filtering, we don't need to check if the packet was intended to us.
-			sx1276_rx_fifo[sx1276_rx_fifo_last].address = spi_rcv_data(REG_FIFO);
-			j = 0;
-			while ((spi_rcv_data(REG_IRQFLAGS2) & RF_IRQFLAGS2_FIFOEMPTY) == 0)
-			{
-				sx1276_rx_fifo[sx1276_rx_fifo_last].data[j++] = spi_rcv_data(REG_FIFO);
-			}
-			FIFO_INCR(sx1276_rx_fifo_last, SX1276_RX_FIFO_SIZE);
-
-			EVENT_SIGNAL_ISR(_local_pkt_rx_ev_id);
-			spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_RXDONE);
-		}
-	}
-
-rx_pkt_it_end:
-	// RIC: PINASSIGN
-	// Reset the interrupt flag
-	P2IFG &= ~BIT5;
-}
-*/
 
 void rx_timeout_handler(void)
 {
@@ -664,8 +547,6 @@ void sx1276_rx_single_pkt(void)
 {
 	if (_modem == MODEM_LORA)
 	{
-		//uint8_t fifo_addr;
-
 		spi_snd_data( REG_LR_INVERTIQ, ( ( spi_rcv_data( REG_LR_INVERTIQ ) & RFLR_INVERTIQ_TX_MASK & RFLR_INVERTIQ_RX_MASK ) | RFLR_INVERTIQ_RX_OFF | RFLR_INVERTIQ_TX_OFF ) );
         spi_snd_data( REG_LR_INVERTIQ2, RFLR_INVERTIQ2_OFF );
 
@@ -758,7 +639,6 @@ void sx1276_rx_single_pkt(void)
  */
 void sx1276_tx_pkt(char *data, uint8_t pkt_size, uint8_t address)
 {
-
 	uint8_t i;
 
 	DISABLE_DIO0_IT;
@@ -799,8 +679,7 @@ void sx1276_tx_pkt(char *data, uint8_t pkt_size, uint8_t address)
 
 		// Waiting for the end of the transmission
 		volatile uint8_t r = spi_rcv_data(REG_LR_IRQFLAGS);
-		while ( !DIO0 );
-
+		while ( !DIO0 ); //seems to hang here RK
 		spi_snd_data(REG_LR_IRQFLAGS, RFLR_IRQFLAGS_TXDONE);
 	}
 	else if ((_modem == MODEM_OOK) || (_modem == MODEM_FSK))

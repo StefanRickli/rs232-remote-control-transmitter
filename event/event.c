@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <misc.h>
 #include <msp430.h>
+#include <ascii_comm_functions_remote_dev.h>
 
 // -------------------------------------------------------------------
 // Internals
@@ -103,12 +104,13 @@ void event_loop(void)
 		// Process the pending events
 		while (!FIFO_EMPTY(_pending_events_first, _pending_events_last))
 		{
+			debug_uart_sendstr("\r\n this String seems to suddenly abort\r\n"); //TODO remove
 			uint16_t id = _pending_events[_pending_events_first];
 			_events[id].handler();
 			_events[id].pending = false;
 			FIFO_INCR(_pending_events_first, EVENT_MAX_COUNT);
 		}
 		// zzZz...
-		LPM1;
+		//_bis_SR_register(LPM1_bits + GIE);
 	}
 }

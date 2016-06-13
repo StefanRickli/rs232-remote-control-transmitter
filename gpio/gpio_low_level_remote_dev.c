@@ -10,8 +10,7 @@
 #include "driverlib.h"
 #include "event.h"
 
-// TODO maybe remove wurx from a later version
-#include "wurx.h"
+
 
 // -----------------------------------------------------------------------------
 // GPIO init
@@ -42,8 +41,8 @@
 #define LED3_PIN	GPIO_PIN2
 
 // Event IDs associated with the buttons
-static uint16_t _sw1_event;
-static uint16_t _sw2_event;
+uint16_t _sw1_event;
+uint16_t _sw2_event;
 uint16_t _sw3_event;
 uint16_t _sw4_event;
 uint16_t _sw5_event;
@@ -163,57 +162,49 @@ inline void led3_off(void) {
 
 // -----------------------------------------------------------------------------
 // GPIO ISRs
+// moved to RK
 // -----------------------------------------------------------------------------
 
-#pragma vector=PORT1_VECTOR
-__interrupt void isr_gpio_p1(void)
+#pragma vector=PORT3_VECTOR
+__interrupt void isr_gpio_p3(void)
 {
-	switch (__even_in_range(P1IV, P1IV_P1IFG7)) {
-	case P1IV_NONE:
+	switch (__even_in_range(P3IV, P3IV_P3IFG7)) {
+	case P3IV_NONE:
 		break;
-	case P1IV_P1IFG0:
+	case P3IV_P3IFG0:
+	break;
+	case P3IV_P3IFG1:
 		break;
-	case P1IV_P1IFG1:
+	case P3IV_P3IFG2:
+		break;
+	case P3IV_P3IFG3:
+		break;
+	case P3IV_P3IFG4:
 		__delay_cycles(200);
-		while(!(P1IN & BIT1));
+		while(!(P3IN & BIT4));
 		__delay_cycles(200);
-		P1IFG &= ~BIT1;
-		EVENT_SIGNAL_ISR(_sw2_event);
+		P3IFG &= ~BIT4;
+		EVENT_SIGNAL_ISR(_sw3_event);
 		break;
-	case P1IV_P1IFG2:
-		break;
-	case P1IV_P1IFG3:
-		/*
+	case P3IV_P3IFG5:
 		__delay_cycles(200);
-		while(!(P1IN & BIT3));
+		while(!(P3IN & BIT5));
 		__delay_cycles(200);
-		P1IFG &= ~BIT3;
-		EVENT_SIGNAL_ISR(_sw6_event);
-		*/
+		P3IFG &= ~BIT5;
+		EVENT_SIGNAL_ISR(_sw4_event);
 		break;
-	case P1IV_P1IFG4:
-		/*
+	case P3IV_P3IFG6:
 		__delay_cycles(200);
-		while(!(P1IN & BIT4));
+		while(!(P3IN & BIT6));
 		__delay_cycles(200);
-		P1IFG &= ~BIT4;
-		EVENT_SIGNAL_ISR(_sw7_event);
-		*/
+		P3IFG &= ~BIT6;
+		EVENT_SIGNAL_ISR(_sw5_event);
 		break;
-	case P1IV_P1IFG5:
-		EVENT_SIGNAL_ISR(_wurx_ev);
-		P1IFG &= ~BIT5;
-		break;
-	case P1IV_P1IFG6:
-		break;
-	case P1IV_P1IFG7:
+	case P3IV_P3IFG7:
 		break;
 	}
-}
 
-/**
- * P3 ISR has been moved to sx1276_driver.c
- */
+}
 
 #pragma vector=PORT4_VECTOR
 __interrupt void isr_gpio_p4(void)

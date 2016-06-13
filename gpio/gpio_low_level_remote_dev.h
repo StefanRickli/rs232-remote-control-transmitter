@@ -33,7 +33,9 @@ void led3_on(void);
 
 void led3_off(void);
 
-// for use in sx1276_driver.c, P3-ISR
+// for use in sx1276_driver.c, P1-ISR
+extern uint16_t _sw1_event;
+extern uint16_t _sw2_event;
 extern uint16_t _sw3_event;
 extern uint16_t _sw4_event;
 extern uint16_t _sw5_event;

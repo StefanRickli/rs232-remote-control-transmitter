@@ -18,7 +18,8 @@
 #include <config.h>
 #include <event.h>
 #include <misc.h>
-#include <mac_layer.h>
+#include <transmit.h>
+#include <sx1276_driver.h>
 #include <timers.h>
 #include <ringbuffer.h>
 
@@ -28,58 +29,66 @@
 /*
  * Packet receive handler
  */
-void lora_rx_packet_handler(void) {
-	struct Packet_t* packet;
-	while (!FIFO_EMPTY(mac_rx_fifo_first, mac_rx_fifo_last)) {
-		// get first packet in MAC-FIFO
-		packet = (struct Packet_t*) mac_rx_fifo[mac_rx_fifo_first].data;
+void lora_rx_handler(void) {
+	struct Packet_t packet;
+	while(!FIFO_EMPTY(sx1276_rx_fifo_first, sx1276_rx_fifo_last))
+	 {
+		memcpy(&packet, sx1276_rx_fifo[sx1276_rx_fifo_first].data, sx1276_rx_fifo[sx1276_rx_fifo_first].size); //get the 1st Packet from the FiFo of the LoRa chip!
+				FIFO_INCR(sx1276_rx_fifo_first, SX1276_RX_FIFO_SIZE);	// Free the spot in the SX1276 driver FIFO
 
-		switch (packet->type) {
-		case PLAYER_COMMAND: {
-			debug_uart_sendstr("PLAYER_COMMAND rcvd\r\n");
+		switch (packet.type)
+			{
+			case PLAYER_COMMAND:
+			{
+				debug_uart_sendstr("PLAYER_COMMAND rcvd\r\n");
 
-			// could be just a status update
+				// could be just a status update
 			break;
-		}
-		case CUSTOM_COMMAND: {
-			// nothing to do on remote_dev side (yet)
-			break;
-		}
-		case PLAYER_COMMAND_SUCC: {
-			debug_uart_sendstr("PLAYER_COMMAND_SUCC rcvd\r\n");
-			break;
-		}
-		case PLAYER_COMMAND_RESPONSE: {
-			if (packet->command_no == 0xD5) { // TRACK No. RETURN
-				debug_uart_sendstr("track number rcvd\r\n");
-				// next two bytes are for EOM information
-				int* tens_no = (int*)(&(packet->text));
-				int* ones_no = tens_no++;
-				int new_track_no = *tens_no * 10 + *ones_no;
-				update_track_no((unsigned int)new_track_no);
 			}
-
-			if (packet->command_no == 0xD9) {
-				debug_uart_sendstr("track name rcvd\r\n");
-				update_track_name(&(packet->text));
+			case CUSTOM_COMMAND:
+			{
+				// nothing to do on remote_dev side (yet)
+				break;
 			}
-			break;
-		}
-		case CUSTOM_COMMAND_RESPONSE: {
-			break;
-		}
-		default:
-			panic("invalid packet type");
-			break;
+			case PLAYER_COMMAND_SUCC:
+			{
+				debug_uart_sendstr("PLAYER_COMMAND_SUCC rcvd\r\n");
+				break;
+			}
+			case PLAYER_COMMAND_RESPONSE:
+			{
+				if (packet.command_no == 0xD5)
+				{ // TRACK No. RETURN
+					debug_uart_sendstr("track number rcvd\r\n");
+					// next two bytes are for EOM information
+					int* tens_no = (int*)(&(packet.data));
+					int* ones_no = tens_no++;
+					int new_track_no = *tens_no * 10 + *ones_no;
+					update_track_no((unsigned int)new_track_no);
+				}
+
+				if (packet.command_no == 0xD9)
+				{
+					debug_uart_sendstr("track name rcvd\r\n");
+					update_track_name( (packet.data));
+				}
+				break;
+			}
+			case CUSTOM_COMMAND_RESPONSE:
+			{
+				break;
+			}
+			default:
+				panic("invalid packet type");
+				break;
 		}
 
-		if (packet->player_status != EMPTY_STATUS) {
-			update_state(packet->player_status);
+		if (packet.player_status != EMPTY_STATUS)
+		{
+			update_state(packet.player_status);
 		}
-
-		// Free this spot
-		FIFO_INCR(mac_rx_fifo_first, MAC_RX_FIFO_SIZE);
 	}
+	sx1276_rx_single_pkt(); //ugly that a driver command is in such a high level file, but thats the only way I could implement it without wasting to much time RK
 }
 
 /**
@@ -106,15 +115,15 @@ void debug_uart_cmdline_handler(void) {
 	{
 		// parse the local command and take appropriate action
 		if (strcmp(cmdline, "stop\r") == 0) {
+//#ifdef DEBUG_MODE
 			debug_uart_sendstr(">010\r");
-
+//#endif
 			comm_uart_sendstr("L\n010\r");
 #ifdef LORA_ENABLE
 			struct Packet_t packet;
 			packet.type = PLAYER_COMMAND;
 			packet.command_no = 0x10;
-			mac_lora_tx(BROADCAST_ADDRESS, (char*) (&packet),
-					sizeof(struct Packet_t));
+			lora_send_pkt( (&packet));
 #endif
 
 		} else if (strcmp(cmdline, "start\r") == 0) {
@@ -125,9 +134,8 @@ void debug_uart_cmdline_handler(void) {
 			struct Packet_t packet;
 			packet.type = PLAYER_COMMAND;
 			packet.command_no = 0x12;
-			mac_lora_tx(BROADCAST_ADDRESS, (char*) (&packet),
-					sizeof(struct Packet_t));
-#endif
+			lora_send_pkt( &packet );
+			#endif
 
 		} else if (strcmp(cmdline, "pause\r") == 0
 				|| strcmp(cmdline, "ready\r") == 0) {
@@ -138,8 +146,7 @@ void debug_uart_cmdline_handler(void) {
 			struct Packet_t packet;
 			packet.type = PLAYER_COMMAND;
 			packet.command_no = 0x1401;
-			mac_lora_tx(BROADCAST_ADDRESS, (char*) (&packet),
-					sizeof(struct Packet_t));
+			lora_send_pkt( &packet );
 #endif
 
 		} else if (strcmp(cmdline, "prev\r") == 0) {
@@ -150,8 +157,7 @@ void debug_uart_cmdline_handler(void) {
 			struct Packet_t packet;
 			packet.type = PLAYER_COMMAND;
 			packet.command_no = 0x1A01;
-			mac_lora_tx(BROADCAST_ADDRESS, (char*) (&packet),
-					sizeof(struct Packet_t));
+			lora_send_pkt( &packet );
 #endif
 
 		} else if (strcmp(cmdline, "next\r") == 0) {
@@ -162,8 +168,7 @@ void debug_uart_cmdline_handler(void) {
 			struct Packet_t packet;
 			packet.type = PLAYER_COMMAND;
 			packet.command_no = 0x1A00;
-			mac_lora_tx(BROADCAST_ADDRESS, (char*) (&packet),
-					sizeof(struct Packet_t));
+			lora_send_pkt( &packet );
 #endif
 
 		} else {

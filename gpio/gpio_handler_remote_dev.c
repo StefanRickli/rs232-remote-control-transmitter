@@ -9,7 +9,7 @@
 
 #include <ascii_comm_functions_remote_dev.h>
 #include "config.h"
-#include "mac_layer.h"
+#include <transmit.h>
 
 /**
  * SW1: STOP
@@ -25,7 +25,7 @@ void remote_dev_sw1_handler(void)
 	packet.type = PLAYER_COMMAND;
 	packet.command_no = 0x10;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 }
 
 /**
@@ -42,7 +42,7 @@ void remote_dev_sw2_handler(void)
 	packet.type = PLAYER_COMMAND;
 	packet.command_no = 0x12;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 }
 
 /**
@@ -59,7 +59,7 @@ void remote_dev_sw3_handler(void)
 	packet.type = PLAYER_COMMAND;
 	packet.command_no = 0x1401;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 
 }
 
@@ -77,7 +77,7 @@ void remote_dev_sw4_handler(void)
 	packet.type = PLAYER_COMMAND;
 	packet.command_no = 0x1A01;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 }
 
 /**
@@ -94,7 +94,7 @@ void remote_dev_sw5_handler(void)
 	packet.type = PLAYER_COMMAND;
 	packet.command_no = 0x1A00;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 
 }
 
@@ -110,7 +110,7 @@ void remote_dev_sw6_handler(void)
 	packet.type = CUSTOM_COMMAND;
 	packet.command_no = 0x1;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 }
 
 /**
@@ -125,6 +125,6 @@ void remote_dev_sw7_handler(void)
 	packet.type = CUSTOM_COMMAND;
 	packet.command_no = 0x0;
 
-	mac_lora_tx(BROADCAST_ADDRESS, (char*)(&packet), sizeof(struct Packet_t));
+	lora_send_pkt( &packet );
 
 }
